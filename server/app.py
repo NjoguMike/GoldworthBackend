@@ -34,13 +34,12 @@ def server_error(e):
     return "Sorry for the inconvenience, we are looking into the problem. Thankyou for your patience!"
 
 
-class Index(Resource):
-    def get(self):
-        message = "Hello, World"
-        return render_template('index.html',  
-                           message=message)
+# class Index(Resource):
+#     def get(self):
+#         # message = "Hello, World"
+#         return render_template('index.html')
 
-api.add_resource(Index, '/admin')
+# api.add_resource(Index, '/admin')
 
 
 def User_details(user):

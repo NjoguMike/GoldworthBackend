@@ -6,7 +6,7 @@ from flask_cors import CORS
 from flask_restful import Api
 from flask_sqlalchemy import SQLAlchemy
 from flask_session import Session
-from flask_admin import Admin
+from flask_admin import Admin, AdminIndexView
 import os
 
 app = Flask(__name__)
@@ -31,4 +31,5 @@ bcrypt = Bcrypt(app)
 mash = Marshmallow(app)
 api = Api(app)
 db.init_app(app)
-admin = Admin(app, name="GoldWorth", template_mode='bootstrap4')
+admin = Admin(app, index_view=AdminIndexView( name='GoldWorth', template='admin/index.html', url='/' ), template_mode='bootstrap4')
+
