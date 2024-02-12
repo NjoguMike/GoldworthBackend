@@ -1,4 +1,4 @@
-from models import Student, Teacher, Parent, Course, Content, User, Assignment, Report_Card,Event, Submitted_Assignment, Saved_Content, course_student, course_teacher
+from models import Student, Teacher, Parent, Course, Content, User, Assignment, Report_Card,Event, Submitted_Assignment, Saved_Content
 import json
 import pytz
 import requests
@@ -30,8 +30,8 @@ with app.app_context():
     Report_Card.query.delete()
     Event.query.delete()
 
-    departments = ['Networking','IT','CyberSecurity','Help Desk','Admin']
-    expertise = ['engineering', 'software', 'networking', 'mobile-dev', 'web-dev']
+    departments = ['Data-Science','Networking','CyberSecurity', 'Mobile-Dev', 'Web-Dev', 'Machine-Learning']
+    expertise = ['Engineering', 'Frornt-end', 'Back-end', 'Mobile-dev', 'Full-Stack', 'Help Desk', 'Analytics', 'Marketing']
     assignment_heads = ['web-Dev','Python','Data_Structures','Front-End','Back-End','Mobile-Dev','Machine_Learning','Cyber_Security','Data_Science']
 
     students = []
@@ -40,34 +40,11 @@ with app.app_context():
     course_list = []
     content_list = []
     assignments = []
+    submitted = []
     report_cards = []
     events = []
 
-    for i in range(20):
-        teacher = Teacher(
-            firstname = fake.first_name(),
-            lastname = fake.last_name(),
-            personal_email = fake.email(),
-            email = f'{fake.last_name()}.{fake.first_name()}@lecturer.goldworth.com',
-            # image_url = image,
-            password = fake.password(),
-            expertise = choice(expertise),
-            department = choice(departments)
-        )
-        db.session.add(teacher)
-        db.session.commit()
-
-        user = User(
-            email = teacher.email,
-            _password = teacher._password,
-            teacher_id = teacher.id
-        )
-
-        db.session.add(user)
-        db.session.commit()
-
-        teachers.append(teacher)
-
+    
     for c in courses:
         start_time = fake.time_object()
         duration_hours = fake.random_int(min=1, max=5)
@@ -96,7 +73,34 @@ with app.app_context():
         db.session.commit()
 
         course_list.append(course)
-    
+
+    for i in range(20):
+        teacher = Teacher(
+            firstname = fake.first_name(),
+            lastname = fake.last_name(),
+            personal_email = fake.email(),
+            email = f'{fake.last_name()}.{fake.first_name()}@lecturer.goldworth.com',
+            # image_url = image,
+            password = fake.password(),
+            expertise = choice(expertise),
+            department = choice(departments),
+            course_id = choice(course_list).id,
+        )
+        db.session.add(teacher)
+        db.session.commit()
+
+        user = User(
+            email = teacher.email,
+            _password = teacher._password,
+            teacher_id = teacher.id,
+            role = 'admin' if teacher.id == 1 else 'teacher'
+        )
+
+        db.session.add(user)
+        db.session.commit()
+
+        teachers.append(teacher)
+
     for doc in course_content:
         content = Content(
             content_name = doc['content_name'],
@@ -109,8 +113,6 @@ with app.app_context():
         content_list.append(content)
 
     db.session.commit()
-
-
 
     for i in range(10):
         parent = Parent(
@@ -126,7 +128,8 @@ with app.app_context():
         user = User(
             email = parent.email,
             _password = parent._password,
-            parent_id = parent.id
+            parent_id = parent.id,
+            role = 'parent'
         )
 
         db.session.add(user)
@@ -142,6 +145,7 @@ with app.app_context():
             email = f'{fake.last_name()}.{fake.first_name()}@student.goldworth.com',
             password = fake.password(),
             parent_id = choice(parents).id,
+            course_id = choice(course_list).id,
             # image_url = image,
         )
         db.session.add(student)
@@ -150,7 +154,8 @@ with app.app_context():
         user = User(
             email = student.email,
             _password = student._password,
-            student_id = student.id
+            student_id = student.id,
+            role = 'student'
         )
 
         db.session.add(user)
@@ -173,50 +178,30 @@ with app.app_context():
 
     db.session.commit()
 
-
     for _ in range(50):
         assigno = choice(assignments)
         # print(assigno.assignment_name)
 
         report_card = Report_Card(
             topic=assigno.assignment_name,
-            grade=fake.random_int(0, 100),
             teacher_remarks=fake.sentence(),
             student_id=choice(students).id,
             teacher_id=choice(teachers).id,
-            course_id=assigno.course_id
+            course_id=assigno.course_id,
         )
         db.session.add(report_card)
         report_cards.append(report_card)
     db.session.commit()
 
-    # for stu in students:
-    #     student_course = course_student(
-    #         student_id = stu.id,
-    #         course_id = choice(course_list).id,
-    #     )
-
-    #     db.session.add(student_course)
-    # db.session.commit()
-    
-    # for tr in teachers:
-    #     teacher_course = course_teacher(
-    #         student_id = tr.id,
-    #         course_id = choice(course_list).id,
-    #     )
-
-    #     db.session.add(teacher_course)
-    # db.session.commit()
 
     for a in assignments:
         submitted = Submitted_Assignment(
             assignment_name = a.assignment_name,
             content = a.content,
-            grade = fake.random_int(0, 100),
-            remarks =fake.sentence(),
             assignment_file = a.assignment_file,
             course_id = a.course_id,
             student_id = choice(students).id,
+            report_card_id = choice(report_cards).id
         )
 
         db.session.add(submitted)

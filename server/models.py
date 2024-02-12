@@ -3,21 +3,6 @@ from sqlalchemy.orm import validates
 from sqlalchemy.ext.hybrid import hybrid_property
 import re
 
-course_teacher = db.Table(
-    'course_teacher',
-    db.metadata,
-    db.Column('teacher_id', db.ForeignKey('teachers.id'), primary_key=True),
-    db.Column('course_id', db.ForeignKey('courses.id'), primary_key=True),
-    extend_existing =True
-)
-
-course_student = db.Table(
-    'course_student',
-    db.metadata,
-    db.Column('student_id', db.ForeignKey('students.id'), primary_key=True),
-    db.Column('course_id', db.ForeignKey('courses.id'), primary_key=True),
-    extend_existing =True
-)
 
 class User(db.Model):
     __tablename__ = 'users'
@@ -27,6 +12,7 @@ class User(db.Model):
     parent_id = db.Column(db.Integer, db.ForeignKey('parents.id'))
     student_id = db.Column(db.Integer, db.ForeignKey('students.id'))
     teacher_id = db.Column(db.Integer, db.ForeignKey('teachers.id'))
+    role = db.Column(db.String)
     
     
     @hybrid_property
@@ -56,13 +42,14 @@ class Student(db.Model):
     updated_at = db.Column(db.DateTime, onupdate = db.func.now())
 
     parent_id = db.Column(db.Integer, db.ForeignKey('parents.id'))
+    course_id = db.Column(db.Integer, db.ForeignKey('courses.id'))
 
     user = db.relationship('User', backref='student', cascade="save-update , merge, delete, delete-orphan")
     event = db.relationship('Event', back_populates='student', cascade="save-update , merge, delete, delete-orphan")
+    course = db.relationship('Course', back_populates='students', cascade="save-update , merge, delete")
     parent = db.relationship('Parent', back_populates='child', cascade="save-update , merge, delete")
     assignments = db.relationship('Submitted_Assignment', backref='student', cascade="save-update , merge, delete, delete-orphan")
     report_card = db.relationship('Report_Card', back_populates='student', cascade="save-update , merge, delete, delete-orphan")
-    courses = db.relationship('Course', secondary=course_student, back_populates='students', cascade="save-update , merge, delete")
     docs = db.relationship('Content', cascade="save-update , merge, delete, delete-orphan")
     saved_items = db.relationship('Saved_Content', cascade="save-update , merge, delete, delete-orphan")
 
@@ -97,7 +84,8 @@ class Student(db.Model):
         user = User(
             email = self.email,
             _password = self._password,
-            student_id = self.id
+            student_id = self.id,
+            role = 'student'
         )
         db.session.add(user)
         db.session.commit()
@@ -118,10 +106,12 @@ class Teacher(db.Model):
     created_at = db.Column(db.DateTime, server_default = db.func.now())
     updated_at = db.Column(db.DateTime, onupdate = db.func.now())
 
+    course_id = db.Column(db.Integer, db.ForeignKey('courses.id'))
+
     docs = db.relationship('Content', cascade="save-update , merge, delete, delete-orphan")
+    courses = db.relationship('Course', back_populates='teachers', cascade="save-update , merge, delete")
     user = db.relationship('User', backref='teacher', cascade="save-update , merge, delete, delete-orphan")
     event = db.relationship('Event', back_populates='teacher', cascade="save-update , merge, delete, delete-orphan")
-    courses = db.relationship('Course', secondary=course_teacher, back_populates='teachers', cascade="save-update , merge, delete")
     saved_items = db.relationship('Saved_Content', cascade="save-update , merge, delete, delete-orphan")
 
     def __repr__(self):
@@ -155,7 +145,8 @@ class Teacher(db.Model):
         user = User(
             email = self.email,
             _password = self._password,
-            teacher_id = self.id
+            teacher_id = self.id,
+            role = 'admin' if self.id == 1 else 'teacher'
         )
         db.session.add(user)
         db.session.commit()
@@ -207,7 +198,8 @@ class Parent(db.Model):
         user = User(
             email = self.email,
             _password = self._password,
-            parent_id = self.id
+            parent_id = self.id,
+            role = 'parent'
         )
         db.session.add(user)
         db.session.commit()
@@ -230,8 +222,8 @@ class Course(db.Model):
     updated_at = db.Column(db.DateTime, onupdate = db.func.now())
 
     content = db.relationship('Content', back_populates='course', cascade="save-update , merge, delete, delete-orphan")
-    students = db.relationship('Student', secondary=course_student, back_populates='courses', cascade="save-update , merge, delete")
-    teachers = db.relationship('Teacher', secondary=course_teacher, back_populates='courses', cascade="save-update , merge, delete")
+    students = db.relationship('Student', back_populates='course', cascade="save-update , merge, delete, delete-orphan")
+    teachers = db.relationship('Teacher', back_populates='courses', cascade="save-update , merge, delete, delete-orphan")
 
     def __repr__(self):
         return '<Course %r >' % (self.course_name)
@@ -277,7 +269,7 @@ class Report_Card(db.Model):
     
     id = db.Column(db.Integer , primary_key = True)
     topic = db.Column(db.String, nullable = False)
-    grade = db.Column(db.Integer, nullable = False)
+    grade = db.Column(db.Integer)
     teacher_remarks = db.Column(db.String)
     created_at = db.Column(db.DateTime, server_default = db.func.now())
     updated_at = db.Column(db.DateTime, onupdate = db.func.now())
@@ -287,6 +279,7 @@ class Report_Card(db.Model):
     student_id = db.Column(db.Integer, db.ForeignKey('students.id'))
 
     student = db.relationship('Student', back_populates='report_card', cascade="save-update , merge, delete")
+    submitted = db.relationship('Submitted_Assignment', backref='event', cascade="save-update , merge, delete")
 
 
 
@@ -323,6 +316,7 @@ class Submitted_Assignment(db.Model):
 
     course_id = db.Column(db.Integer, db.ForeignKey('courses.id'))
     student_id = db.Column(db.Integer, db.ForeignKey('students.id'))
+    report_card_id = db.Column(db.Integer, db.ForeignKey('report_cards.id'))
     
     
 class Event(db.Model):
@@ -357,7 +351,7 @@ class Comment(db.Model):
     id = db.Column(db.Integer , primary_key = True)
     title = db.Column(db.String)
     subject = db.Column(db.String)
-    content = db.Column(db.String)
+    message = db.Column(db.String)
     created_at = db.Column(db.DateTime, server_default = db.func.now())
     updated_at = db.Column(db.DateTime, onupdate = db.func.now())
 

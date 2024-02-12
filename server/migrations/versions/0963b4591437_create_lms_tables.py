@@ -1,8 +1,8 @@
-"""Updated relationships
+"""Create lms tables
 
-Revision ID: 426ee91cdd36
+Revision ID: 0963b4591437
 Revises: 
-Create Date: 2024-02-09 11:13:15.740332
+Create Date: 2024-02-12 11:38:53.825039
 
 """
 from alembic import op
@@ -10,7 +10,7 @@ import sqlalchemy as sa
 
 
 # revision identifiers, used by Alembic.
-revision = '426ee91cdd36'
+revision = '0963b4591437'
 down_revision = None
 branch_labels = None
 depends_on = None
@@ -28,7 +28,7 @@ def upgrade():
     sa.Column('endRecur', sa.Date(), nullable=True),
     sa.Column('startTime', sa.Time(), nullable=True),
     sa.Column('endTime', sa.Time(), nullable=True),
-    sa.Column('created_at', sa.DateTime(), server_default=sa.text('(CURRENT_TIMESTAMP)'), nullable=True),
+    sa.Column('created_at', sa.DateTime(), server_default=sa.text('now()'), nullable=True),
     sa.Column('updated_at', sa.DateTime(), nullable=True),
     sa.PrimaryKeyConstraint('id'),
     sa.UniqueConstraint('course_name')
@@ -40,7 +40,7 @@ def upgrade():
     sa.Column('email', sa.String(), nullable=False),
     sa.Column('_password', sa.String(), nullable=False),
     sa.Column('image_url', sa.String(), nullable=True),
-    sa.Column('created_at', sa.DateTime(), server_default=sa.text('(CURRENT_TIMESTAMP)'), nullable=True),
+    sa.Column('created_at', sa.DateTime(), server_default=sa.text('now()'), nullable=True),
     sa.Column('updated_at', sa.DateTime(), nullable=True),
     sa.PrimaryKeyConstraint('id'),
     sa.UniqueConstraint('_password'),
@@ -54,6 +54,25 @@ def upgrade():
     sa.PrimaryKeyConstraint('id'),
     sa.UniqueConstraint('session_id')
     )
+    op.create_table('students',
+    sa.Column('id', sa.Integer(), nullable=False),
+    sa.Column('firstname', sa.String(), nullable=False),
+    sa.Column('lastname', sa.String(), nullable=False),
+    sa.Column('personal_email', sa.String(), nullable=False),
+    sa.Column('email', sa.String(), nullable=False),
+    sa.Column('_password', sa.String(), nullable=False),
+    sa.Column('image_url', sa.String(), nullable=True),
+    sa.Column('created_at', sa.DateTime(), server_default=sa.text('now()'), nullable=True),
+    sa.Column('updated_at', sa.DateTime(), nullable=True),
+    sa.Column('parent_id', sa.Integer(), nullable=True),
+    sa.Column('course_id', sa.Integer(), nullable=True),
+    sa.ForeignKeyConstraint(['course_id'], ['courses.id'], ),
+    sa.ForeignKeyConstraint(['parent_id'], ['parents.id'], ),
+    sa.PrimaryKeyConstraint('id'),
+    sa.UniqueConstraint('_password'),
+    sa.UniqueConstraint('email'),
+    sa.UniqueConstraint('personal_email')
+    )
     op.create_table('teachers',
     sa.Column('id', sa.Integer(), nullable=False),
     sa.Column('firstname', sa.String(), nullable=False),
@@ -64,8 +83,10 @@ def upgrade():
     sa.Column('image_url', sa.String(), nullable=True),
     sa.Column('expertise', sa.String(), nullable=True),
     sa.Column('department', sa.String(), nullable=True),
-    sa.Column('created_at', sa.DateTime(), server_default=sa.text('(CURRENT_TIMESTAMP)'), nullable=True),
+    sa.Column('created_at', sa.DateTime(), server_default=sa.text('now()'), nullable=True),
     sa.Column('updated_at', sa.DateTime(), nullable=True),
+    sa.Column('course_id', sa.Integer(), nullable=True),
+    sa.ForeignKeyConstraint(['course_id'], ['courses.id'], ),
     sa.PrimaryKeyConstraint('id'),
     sa.UniqueConstraint('_password'),
     sa.UniqueConstraint('email'),
@@ -77,8 +98,8 @@ def upgrade():
     sa.Column('topic', sa.String(), nullable=False),
     sa.Column('content', sa.String(), nullable=False),
     sa.Column('assignment_file', sa.String(), nullable=True),
-    sa.Column('due_date', sa.DateTime(), server_default=sa.text('(CURRENT_TIMESTAMP)'), nullable=True),
-    sa.Column('created_at', sa.DateTime(), server_default=sa.text('(CURRENT_TIMESTAMP)'), nullable=True),
+    sa.Column('due_date', sa.DateTime(), server_default=sa.text('now()'), nullable=True),
+    sa.Column('created_at', sa.DateTime(), server_default=sa.text('now()'), nullable=True),
     sa.Column('updated_at', sa.DateTime(), nullable=True),
     sa.Column('course_id', sa.Integer(), nullable=True),
     sa.Column('teacher_id', sa.Integer(), nullable=True),
@@ -86,36 +107,12 @@ def upgrade():
     sa.ForeignKeyConstraint(['teacher_id'], ['teachers.id'], ),
     sa.PrimaryKeyConstraint('id')
     )
-    op.create_table('course_teacher',
-    sa.Column('teacher_id', sa.Integer(), nullable=False),
-    sa.Column('course_id', sa.Integer(), nullable=False),
-    sa.ForeignKeyConstraint(['course_id'], ['courses.id'], ),
-    sa.ForeignKeyConstraint(['teacher_id'], ['teachers.id'], ),
-    sa.PrimaryKeyConstraint('teacher_id', 'course_id')
-    )
-    op.create_table('students',
-    sa.Column('id', sa.Integer(), nullable=False),
-    sa.Column('firstname', sa.String(), nullable=False),
-    sa.Column('lastname', sa.String(), nullable=False),
-    sa.Column('personal_email', sa.String(), nullable=False),
-    sa.Column('email', sa.String(), nullable=False),
-    sa.Column('_password', sa.String(), nullable=False),
-    sa.Column('image_url', sa.String(), nullable=True),
-    sa.Column('created_at', sa.DateTime(), server_default=sa.text('(CURRENT_TIMESTAMP)'), nullable=True),
-    sa.Column('updated_at', sa.DateTime(), nullable=True),
-    sa.Column('parent_id', sa.Integer(), nullable=True),
-    sa.ForeignKeyConstraint(['parent_id'], ['parents.id'], ),
-    sa.PrimaryKeyConstraint('id'),
-    sa.UniqueConstraint('_password'),
-    sa.UniqueConstraint('email'),
-    sa.UniqueConstraint('personal_email')
-    )
     op.create_table('comments',
     sa.Column('id', sa.Integer(), nullable=False),
     sa.Column('title', sa.String(), nullable=True),
     sa.Column('subject', sa.String(), nullable=True),
-    sa.Column('content', sa.String(), nullable=True),
-    sa.Column('created_at', sa.DateTime(), server_default=sa.text('(CURRENT_TIMESTAMP)'), nullable=True),
+    sa.Column('message', sa.String(), nullable=True),
+    sa.Column('created_at', sa.DateTime(), server_default=sa.text('now()'), nullable=True),
     sa.Column('updated_at', sa.DateTime(), nullable=True),
     sa.Column('teacher_id', sa.Integer(), nullable=True),
     sa.Column('student_id', sa.Integer(), nullable=True),
@@ -131,7 +128,7 @@ def upgrade():
     sa.Column('description', sa.String(), nullable=False),
     sa.Column('content_file', sa.String(), nullable=True),
     sa.Column('content_type', sa.String(), nullable=False),
-    sa.Column('created_at', sa.DateTime(), server_default=sa.text('(CURRENT_TIMESTAMP)'), nullable=True),
+    sa.Column('created_at', sa.DateTime(), server_default=sa.text('now()'), nullable=True),
     sa.Column('updated_at', sa.DateTime(), nullable=True),
     sa.Column('course_id', sa.Integer(), nullable=True),
     sa.Column('teacher_id', sa.Integer(), nullable=True),
@@ -140,13 +137,6 @@ def upgrade():
     sa.ForeignKeyConstraint(['student_id'], ['students.id'], ),
     sa.ForeignKeyConstraint(['teacher_id'], ['teachers.id'], ),
     sa.PrimaryKeyConstraint('id')
-    )
-    op.create_table('course_student',
-    sa.Column('student_id', sa.Integer(), nullable=False),
-    sa.Column('course_id', sa.Integer(), nullable=False),
-    sa.ForeignKeyConstraint(['course_id'], ['courses.id'], ),
-    sa.ForeignKeyConstraint(['student_id'], ['students.id'], ),
-    sa.PrimaryKeyConstraint('student_id', 'course_id')
     )
     op.create_table('events',
     sa.Column('id', sa.Integer(), nullable=False),
@@ -171,9 +161,9 @@ def upgrade():
     op.create_table('report_cards',
     sa.Column('id', sa.Integer(), nullable=False),
     sa.Column('topic', sa.String(), nullable=False),
-    sa.Column('grade', sa.Integer(), nullable=False),
+    sa.Column('grade', sa.Integer(), nullable=True),
     sa.Column('teacher_remarks', sa.String(), nullable=True),
-    sa.Column('created_at', sa.DateTime(), server_default=sa.text('(CURRENT_TIMESTAMP)'), nullable=True),
+    sa.Column('created_at', sa.DateTime(), server_default=sa.text('now()'), nullable=True),
     sa.Column('updated_at', sa.DateTime(), nullable=True),
     sa.Column('course_id', sa.Integer(), nullable=True),
     sa.Column('teacher_id', sa.Integer(), nullable=True),
@@ -187,7 +177,7 @@ def upgrade():
     sa.Column('id', sa.Integer(), nullable=False),
     sa.Column('content_name', sa.String(), nullable=False),
     sa.Column('content_type', sa.String(), nullable=False),
-    sa.Column('created_at', sa.DateTime(), server_default=sa.text('(CURRENT_TIMESTAMP)'), nullable=True),
+    sa.Column('created_at', sa.DateTime(), server_default=sa.text('now()'), nullable=True),
     sa.Column('updated_at', sa.DateTime(), nullable=True),
     sa.Column('course_id', sa.Integer(), nullable=True),
     sa.Column('teacher_id', sa.Integer(), nullable=True),
@@ -196,6 +186,20 @@ def upgrade():
     sa.ForeignKeyConstraint(['student_id'], ['students.id'], ),
     sa.ForeignKeyConstraint(['teacher_id'], ['teachers.id'], ),
     sa.PrimaryKeyConstraint('id')
+    )
+    op.create_table('users',
+    sa.Column('email', sa.String(), nullable=False),
+    sa.Column('_password', sa.String(), nullable=False),
+    sa.Column('parent_id', sa.Integer(), nullable=True),
+    sa.Column('student_id', sa.Integer(), nullable=True),
+    sa.Column('teacher_id', sa.Integer(), nullable=True),
+    sa.Column('role', sa.String(), nullable=True),
+    sa.ForeignKeyConstraint(['parent_id'], ['parents.id'], ),
+    sa.ForeignKeyConstraint(['student_id'], ['students.id'], ),
+    sa.ForeignKeyConstraint(['teacher_id'], ['teachers.id'], ),
+    sa.PrimaryKeyConstraint('email'),
+    sa.UniqueConstraint('_password'),
+    sa.UniqueConstraint('email')
     )
     op.create_table('submitted_assignments',
     sa.Column('id', sa.Integer(), nullable=False),
@@ -205,44 +209,31 @@ def upgrade():
     sa.Column('assignment_file', sa.String(), nullable=True),
     sa.Column('remarks', sa.String(), nullable=True),
     sa.Column('is_graded', sa.Boolean(), nullable=True),
-    sa.Column('created_at', sa.DateTime(), server_default=sa.text('(CURRENT_TIMESTAMP)'), nullable=True),
+    sa.Column('created_at', sa.DateTime(), server_default=sa.text('now()'), nullable=True),
     sa.Column('updated_at', sa.DateTime(), nullable=True),
     sa.Column('course_id', sa.Integer(), nullable=True),
     sa.Column('student_id', sa.Integer(), nullable=True),
+    sa.Column('report_card_id', sa.Integer(), nullable=True),
     sa.ForeignKeyConstraint(['course_id'], ['courses.id'], ),
+    sa.ForeignKeyConstraint(['report_card_id'], ['report_cards.id'], ),
     sa.ForeignKeyConstraint(['student_id'], ['students.id'], ),
     sa.PrimaryKeyConstraint('id')
-    )
-    op.create_table('users',
-    sa.Column('email', sa.String(), nullable=False),
-    sa.Column('_password', sa.String(), nullable=False),
-    sa.Column('parent_id', sa.Integer(), nullable=True),
-    sa.Column('student_id', sa.Integer(), nullable=True),
-    sa.Column('teacher_id', sa.Integer(), nullable=True),
-    sa.ForeignKeyConstraint(['parent_id'], ['parents.id'], ),
-    sa.ForeignKeyConstraint(['student_id'], ['students.id'], ),
-    sa.ForeignKeyConstraint(['teacher_id'], ['teachers.id'], ),
-    sa.PrimaryKeyConstraint('email'),
-    sa.UniqueConstraint('_password'),
-    sa.UniqueConstraint('email')
     )
     # ### end Alembic commands ###
 
 
 def downgrade():
     # ### commands auto generated by Alembic - please adjust! ###
-    op.drop_table('users')
     op.drop_table('submitted_assignments')
+    op.drop_table('users')
     op.drop_table('saved-contents')
     op.drop_table('report_cards')
     op.drop_table('events')
-    op.drop_table('course_student')
     op.drop_table('contents')
     op.drop_table('comments')
-    op.drop_table('students')
-    op.drop_table('course_teacher')
     op.drop_table('assignments')
     op.drop_table('teachers')
+    op.drop_table('students')
     op.drop_table('sessions')
     op.drop_table('parents')
     op.drop_table('courses')

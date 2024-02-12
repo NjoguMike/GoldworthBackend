@@ -361,7 +361,7 @@ class CommentsSchema(mash.SQLAlchemySchema):
     id = mash.auto_field()
     title = mash.auto_field()
     subject = mash.auto_field()
-    content = mash.auto_field()
+    message = mash.auto_field()
     parent_id = mash.auto_field()
     student_id = mash.auto_field()
     teacher_id = mash.auto_field()
@@ -1043,7 +1043,7 @@ class Comments(Resource):
         new_comment = Comment(
             title=comment_data['title'],
             subject=comment_data['subject'],
-            content=comment_data['content'],
+            message=comment_data['content'],
             parent_id=comment_data['parent_id'],
             student_id=comment_data['student_id'],
             teacher_id=comment_data['teacher_id'],
@@ -1112,4 +1112,4 @@ api.add_resource(CommentById, '/comments/<int:id>')
 api.add_resource(Comments, '/comments')
 
 if __name__ == '__main__':
-    app.run(port=5555, debug=True)
+    app.run(port=5555)
