@@ -40,7 +40,7 @@ class Index(Resource):
         return render_template('index.html',  
                            message=message)
 
-api.add_resource(Index, '/')
+api.add_resource(Index, '/admin')
 
 
 def User_details(user):
