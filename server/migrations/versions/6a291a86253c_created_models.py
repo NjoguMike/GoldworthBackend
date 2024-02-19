@@ -1,8 +1,8 @@
-"""Create lms tables
+"""Created models
 
-Revision ID: 0963b4591437
+Revision ID: 6a291a86253c
 Revises: 
-Create Date: 2024-02-12 11:38:53.825039
+Create Date: 2024-02-19 13:34:03.972386
 
 """
 from alembic import op
@@ -10,7 +10,7 @@ import sqlalchemy as sa
 
 
 # revision identifiers, used by Alembic.
-revision = '0963b4591437'
+revision = '6a291a86253c'
 down_revision = None
 branch_labels = None
 depends_on = None
@@ -160,7 +160,7 @@ def upgrade():
     )
     op.create_table('report_cards',
     sa.Column('id', sa.Integer(), nullable=False),
-    sa.Column('topic', sa.String(), nullable=False),
+    sa.Column('student_name', sa.String(), nullable=False),
     sa.Column('grade', sa.Integer(), nullable=True),
     sa.Column('teacher_remarks', sa.String(), nullable=True),
     sa.Column('created_at', sa.DateTime(), server_default=sa.text('now()'), nullable=True),

@@ -181,9 +181,10 @@ with app.app_context():
     for _ in range(50):
         assigno = choice(assignments)
         # print(assigno.assignment_name)
+        student = choice(students)
 
         report_card = Report_Card(
-            topic=assigno.assignment_name,
+            student_name=f'{student.firstname} {student.lastname}',
             teacher_remarks=fake.sentence(),
             student_id=choice(students).id,
             teacher_id=choice(teachers).id,

@@ -268,7 +268,7 @@ class Report_Card(db.Model):
     __tablename__ = 'report_cards'
     
     id = db.Column(db.Integer , primary_key = True)
-    topic = db.Column(db.String, nullable = False)
+    student_name = db.Column(db.String, nullable = False)
     grade = db.Column(db.Integer)
     teacher_remarks = db.Column(db.String)
     created_at = db.Column(db.DateTime, server_default = db.func.now())

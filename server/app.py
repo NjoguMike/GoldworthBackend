@@ -3,8 +3,9 @@ from flask import request, make_response, session, send_from_directory, render_t
 from models import Teacher, Student, Parent, Course, Content, User, Report_Card, Assignment, Event, Saved_Content, Comment, Submitted_Assignment
 from flask_restful import Resource
 from datetime import datetime
-from config import mash, db, api, app, admin
+from config import mash, db, api, app, admin, form
 from flask_admin.contrib.sqla import ModelView
+from flask_admin.form.upload import FileUploadField, ImageUploadField
 from werkzeug.exceptions import NotFound, MethodNotAllowed, ServiceUnavailable, BadRequest, InternalServerError
 from werkzeug.utils import secure_filename
 
@@ -34,14 +35,6 @@ def server_error(e):
     return "Sorry for the inconvenience, we are looking into the problem. Thankyou for your patience!"
 
 
-# class Index(Resource):
-#     def get(self):
-#         # message = "Hello, World"
-#         return render_template('index.html')
-
-# api.add_resource(Index, '/admin')
-
-
 def User_details(user):
     if 'lecturer' in user.email:
         return make_response(
@@ -53,7 +46,7 @@ def User_details(user):
                 "expertise": user.teacher.expertise,
                 "department": user.teacher.department,
                 "docs": contents_schema.dump(user.teacher.docs),
-                "courses": courses_schema.dump(user.teacher.courses),
+                "courses": course_schema.dump(user.teacher.courses),
             }, 200
         )
     elif 'student' in user.email:
@@ -66,7 +59,7 @@ def User_details(user):
                 "report_card": report_cards_schema.dump(user.student.report_card),
                 "assignments": submitted_assignments_schema.dump(user.student.assignments),
                 "docs": contents_schema.dump(user.student.docs),
-                "courses": courses_schema.dump(user.student.courses),
+                "course": course_schema.dump(user.student.course),
                 "event": events_schema.dump(user.student.event)
             }, 200
         )
@@ -130,10 +123,23 @@ class FetchFile(Resource):
     def get(self,id):
         assignment = Assignment.query.filter_by(id=id).first()
 
-        assignment_file = send_from_directory(app.config['FILE_UPLOAD_PATH'] , assignment.assignment_file , as_attachment=True)
-        return assignment_file
+        if assignment.assignment_file:
+            assignment_file = send_from_directory(app.config['FILE_UPLOAD_PATH'] , assignment.assignment_file , as_attachment=True)
+            return assignment_file
+        return 'No such file exists', 404
 
 api.add_resource(FetchFile, '/assignment-file/<int:id>')
+
+class FetchCourseImage(Resource):
+    def get(self,id):
+        course = Course.query.filter_by(id=id).first()
+
+        if course.image_url:
+            course_image = send_from_directory(app.config['IMAGE_UPLOAD_PATH'] , course.image_url)
+            return course_image
+        return send_from_directory(app.config['IMAGE_UPLOAD_PATH'] , 'full-stack-devlopment-min.png')
+
+api.add_resource(FetchCourseImage, '/course-image/<int:id>')
 
 class FetchImage(Resource):
     def get(self):
@@ -142,14 +148,21 @@ class FetchImage(Resource):
         user = User.query.filter_by(email=session_details).first()
 
         if 'lecturer' in user.email:
-            photo = send_from_directory(app.config['IMAGE_UPLOAD_PATH'] , user.teacher.image_url)
-            return photo
+            if user.teacher.image_url:
+                photo = send_from_directory(app.config['IMAGE_UPLOAD_PATH'] , user.teacher.image_url)
+                return photo
+            return send_from_directory(app.config['IMAGE_UPLOAD_PATH'] , 'Member-Image.jpg')
         elif 'student' in user.email:
-            photo = send_from_directory(app.config['IMAGE_UPLOAD_PATH'] , user.student.image_url)
-            return photo
-        return send_from_directory(app.config['IMAGE_UPLOAD_PATH'] , user.parent.image_url)
+            if user.student.image_url:
+                photo = send_from_directory(app.config['IMAGE_UPLOAD_PATH'] , user.student.image_url)
+                return photo
+            return send_from_directory(app.config['IMAGE_UPLOAD_PATH'] , 'Member-Image.jpg')
+        elif user.parent.image_url:
+            return send_from_directory(app.config['IMAGE_UPLOAD_PATH'] , user.parent.image_url)
+        return send_from_directory(app.config['IMAGE_UPLOAD_PATH'] , 'Member-Image.jpg')
 
-api.add_resource(FetchImage, '/profile_image')
+
+api.add_resource(FetchImage, '/profile-image')
 
 
 #Marshmallow API Endpoints
@@ -254,11 +267,11 @@ class StudentSchema(mash.SQLAlchemySchema):
     lastname = mash.auto_field()
     email = mash.auto_field()
     created_at = mash.auto_field()
-    courses = mash.List(mash.Nested(CourseSchema))
+    course = mash.Nested(CourseSchema)
     parent = mash.Nested(ParentSchema)
     docs = mash.List(mash.Nested(ContentSchema))
     event = mash.auto_field()
-    report_card = mash.List(mash.Nested(lambda: ReportCardSchema(only=('id','topic','grade', 'teacher_remarks', 'course_id'))))
+    report_card = mash.List(mash.Nested(lambda: ReportCardSchema(only=('id','student_name','grade', 'teacher_remarks', 'course_id'))))
     assignments = mash.List(mash.Nested(lambda: Submitted_AssignmentSchema(only=('id','assignment_name','content', 'remarks', 'grade', 'course_id'))))
 
 
@@ -279,7 +292,7 @@ class ReportCardSchema(mash.SQLAlchemySchema):
         model = Report_Card
     
     id = mash.auto_field()
-    topic = mash.auto_field()
+    student_name = mash.auto_field()
     teacher_remarks = mash.auto_field()
     grade = mash.auto_field()
     
@@ -392,24 +405,73 @@ students_schema = StudentSchema(many=True)
 
 #Flask-Admin Views
 
+path = app.config['IMAGE_UPLOAD_PATH']
+
 class UserView(ModelView):
-    form_columns = ['email', 'password', 'student', 'teacher', 'parent']
+    form_columns = ['email', 'password', 'student', 'teacher', 'parent', 'role']
+    column_exclude_list = ('_password')
+
 
 class StudentView(ModelView):
-    form_columns = ['firstname', 'lastname', 'password', 'email', 'personal_email', 'parent', 'image_url']
+    form_columns = ['firstname', 'lastname', 'password', 'email', 'personal_email','image_url', 'parent', 'course']
+    form_overrides = {
+        'image_url' : form.ImageUploadField
+    }
+    form_args = {
+        'image_url' : {
+            'base_path' : path,
+            'allow_overwrite' : False
+        }
+    }
+    column_exclude_list = ('_password' , 'personal_email')
+
 
 class TeacherView(ModelView):
-    form_columns = ['firstname', 'lastname', 'password', 'email', 'personal_email', 'expertise', 'image_url', 'department']
+    form_columns = ['firstname', 'lastname', 'password', 'email', 'personal_email', 'image_url', 'expertise', 'department', 'courses']
+    form_overrides = {
+        'image_url' : form.ImageUploadField
+    }
+    form_args = {
+        'image_url' : {
+            'base_path' : path,
+            'allow_overwrite' : False
+        }
+    }
+    column_exclude_list = ('_password' , 'personal_email')
 
 class ParentView(ModelView):
     form_columns = ['firstname', 'lastname', 'password', 'email', 'child', 'image_url']
+    form_overrides = {
+        'image_url' : form.ImageUploadField
+    }
+    form_args = {
+        'image_url' : {
+            'base_path' : path,
+            'allow_overwrite' : False
+        }
+    }
+    column_exclude_list = ('_password')
+
+class CourseView(ModelView):
+    form_columns = ['course_name', 'description', 'image_url', 'daysOfWeek', 'startRecur','endRecur', 'startTime', 'endTime', 'created_at', 'content', 'teachers']
+    form_overrides = {
+        'image_url' : form.ImageUploadField
+    }
+    form_args = {
+        'image_url' : {
+            'base_path' : path,
+            'allow_overwrite' : False
+        }
+    }
+    column_exclude_list = ('description')
+
 
 admin.add_views(UserView(User, db.session))
 admin.add_views(StudentView(Student, db.session))
 admin.add_views(TeacherView(Teacher, db.session))
 admin.add_views(ParentView(Parent, db.session))
 admin.add_views(ModelView(Content, db.session))
-admin.add_views(ModelView(Course, db.session))
+admin.add_views(CourseView(Course, db.session))
 admin.add_views(ModelView(Event, db.session))
 
 
@@ -434,10 +496,8 @@ class Students(Resource):
     def post(self):
         student_image = request.files['image_url']
         student_img = secure_filename(student_image.filename)
-        student_image.save(os.path.join(
-            app.config["IMAGE_UPLOAD_PATH"], student_img))
+        student_image.save(os.path.join(app.config["IMAGE_UPLOAD_PATH"], student_img))
 
-        # print(type(student_img))
         new_student = Student(
             firstname=request.form.get('firstname'),
             lastname=request.form.get('lastname'),
@@ -501,12 +561,12 @@ class Assignments(Resource):
         assignment_file.save(os.path.join(app.config["FILE_UPLOAD_PATH"],assignment))
     
         assignment_data = request.form
-        # print(assignment_data['assignment_file'])
+
         new_assignment = Assignment(
             assignment_name = assignment_data.get('assignment_name'),
             topic = assignment_data.get('topic'),
             content = assignment_data.get('content'),
-            assignment_file = assignment_data.get('assignment_file'),
+            assignment_file = assignment,
             due_date = datetime.strptime(assignment_data.get('due_date'), "%Y-%m-%d").date(),
             course_id = assignment_data.get('course_id'),
             teacher_id = assignment_data.get('teacher_id'),
@@ -561,16 +621,21 @@ class Teachers(Resource):
         )
 
     def post(self):
-        teacher_data = request.get_json()
+        teacher_data = request.form
+        teacher_image = request.files['image_url']
+        teacher_img = secure_filename(teacher_image.filename)
+        teacher_image.save(os.path.join(app.config["IMAGE_UPLOAD_PATH"], teacher_img))
+
+
         new_teacher = Teacher(
-            firstname=teacher_data['firstname'],
-            lastname=teacher_data['lastname'],
-            image_url=teacher_data['image_url'],
-            personal_email=teacher_data['personal_email'],
-            password=teacher_data['password'],
-            email=teacher_data['email'],
-            expertise=teacher_data['expertise'],
-            department=teacher_data['department']
+            firstname=teacher_data.get('firstname'),
+            lastname=teacher_data.get('lastname'),
+            image_url=teacher_img,
+            personal_email=teacher_data.get('personal_email'),
+            password=teacher_data.get('password'),
+            email=teacher_data.get('email'),
+            expertise=teacher_data.get('expertise'),
+            department=teacher_data.get('department')
         )
         db.session.add(new_teacher)
         db.session.commit()
@@ -621,13 +686,17 @@ class Parents(Resource):
         )
 
     def post(self):
-        parent_data = request.get_json()
+        parent_data = request.form
+        parent_image = request.files['image_url']
+        parent_img = secure_filename(parent_image.filename)
+        parent_image.save(os.path.join(app.config["IMAGE_UPLOAD_PATH"], parent_img))
+
         new_parent = Parent(
-            firstname=parent_data['firstname'],
-            lastname=parent_data['lastname'],
-            email=parent_data['email'],
-            password=parent_data['password'],
-            # image_url = parent_data['Image_url']
+            firstname=parent_data.get('firstname'),
+            lastname=parent_data.get('lastname'),
+            email=parent_data.get('email'),
+            password=parent_data.get('password'),
+            image_url=parent_img,
         )
         db.session.add(new_parent)
         db.session.commit()
@@ -732,20 +801,23 @@ class Courses(Resource):
         )
 
     def post(self):
-        course_data = request.get_json()
+        course_data = request.form
+        course_image = request.files['image_url']
+        course_img = secure_filename(course_image.filename)
+        course_image.save(os.path.join(app.config["IMAGE_UPLOAD_PATH"], course_img))
+
         new_course = Course(
-            course_name=course_data['course_name'],
-            description=course_data['description'],
-            # student_id = course_data['student_id'],
-            # teacher_id = course_data['teacher_id'],
-            daysOfWeek=course_data['daysOfWeek'],
+            course_name=course_data.get('course_name'),
+            description=course_data.get('description'),
+            image_url=course_img,
+            daysOfWeek=course_data.get('daysOfWeek'),
             startTime=datetime.strptime(
-                course_data['startTime'], "%H:%M").time(),
-            endTime=datetime.strptime(course_data['endTime'], "%H:%M").time(),
+                course_data.get('startTime'), "%H:%M").time(),
+            endTime=datetime.strptime(course_data.get('endTime'), "%H:%M").time(),
             startRecur=datetime.strptime(
-                course_data['startRecur'], "%Y-%m-%d").date(),
+                course_data.get('startRecur'), "%Y-%m-%d").date(),
             endRecur=datetime.strptime(
-                course_data['endRecur'], "%Y-%m-%d").date(),
+                course_data.get('endRecur'), "%Y-%m-%d").date(),
         )
         db.session.add(new_course)
         db.session.commit()
@@ -807,7 +879,7 @@ class Report_Cards(Resource):
     def post(self):
         reportcard_data = request.get_json()
         new_report = Report_Card(
-            topic=reportcard_data['topic'],
+            student_name=reportcard_data['student_name'],
             grade=reportcard_data['grade'],
             teacher_remarks=reportcard_data['teacher_remarks'],
             student_id=reportcard_data['student_id'],
@@ -860,15 +932,20 @@ class Submitted_Assignments(Resource):
         )
 
     def post(self):
-        assignment_data = request.get_json()
-        new_assignment = Content(
-            assignment_name=assignment_data['assignment_name'],
-            grade=assignment_data['grade'],
-            content=assignment_data['content'],
-            assignment_file=assignment_data['assignment_file'],
-            remarks=assignment_data['remarks'],
-            course_id=assignment_data['course_id'],
-            student_id=assignment_data['student_id'],
+        assignment_data = request.form
+        assignment_file = request.files['assignment_file']
+        assignment = secure_filename(assignment_file.filename)
+        assignment_file.save(os.path.join(app.config["FILE_UPLOAD_PATH"], assignment))
+
+        new_assignment = Submitted_Assignment(
+            assignment_name=assignment_data.get('assignment_name'),
+            grade=assignment_data.get('grade'),
+            content=assignment_data.get('content'),
+            assignment_file=assignment,
+            remarks=assignment_data.get('remarks'),
+            course_id=assignment_data.get('course_id'),
+            student_id=assignment_data.get('student_id'),
+            report_card_id=assignment_data.get('report_card_id'),
         )
         db.session.add(new_assignment)
         db.session.commit()
@@ -886,11 +963,11 @@ class Submitted_AssignmentbyId(Resource):
         )
 
     def patch(self, id):
-        assignment_data = request.get_json()
+        assignment_data = request.form
         assignment = Submitted_Assignment.query.filter_by(id=id).first()
 
         for attr in assignment_data:
-            setattr(assignment, attr, assignment_data[attr])
+            setattr(assignment, attr, assignment_data.get(attr))
 
         db.session.add(assignment)
         db.session.commit()
@@ -1042,7 +1119,7 @@ class Comments(Resource):
         new_comment = Comment(
             title=comment_data['title'],
             subject=comment_data['subject'],
-            message=comment_data['content'],
+            message=comment_data['message'],
             parent_id=comment_data['parent_id'],
             student_id=comment_data['student_id'],
             teacher_id=comment_data['teacher_id'],
@@ -1111,4 +1188,4 @@ api.add_resource(CommentById, '/comments/<int:id>')
 api.add_resource(Comments, '/comments')
 
 if __name__ == '__main__':
-    app.run(port=5555)
+    app.run()
