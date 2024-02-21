@@ -68,7 +68,6 @@ SQLAlchemy-serializer==1.4.1
 stack-data==0.6.3
 tomli==2.0.1
 traitlets==5.14.1
-typing_extensions==4.9.0
 ubuntu-advantage-tools==8001
 ufw==0.36.1
 unattended-upgrades==0.1
