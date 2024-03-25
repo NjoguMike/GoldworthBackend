@@ -1188,4 +1188,4 @@ api.add_resource(CommentById, '/comments/<int:id>')
 api.add_resource(Comments, '/comments')
 
 if __name__ == '__main__':
-    app.run()
+    app.run(port=5000)

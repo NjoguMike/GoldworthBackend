@@ -13,6 +13,7 @@ app = Flask(__name__)
 
 db = SQLAlchemy()
 
+
 app.config['FLASK_ADMIN_SWATCH'] = 'cerulean'
 app.config['SQLALCHEMY_DATABASE_URI'] = os.environ.get('DATABASE_URI')
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
@@ -22,6 +23,7 @@ app.config['SECRET_KEY'] = 'no_key'
 app.config["IMAGE_UPLOAD_PATH"] = "image_uploads"
 app.config["FILE_UPLOAD_PATH"] = "file_uploads"
 
+db.init_app(app)
 
 migrate = Migrate(app, db)
 CORS(app)
@@ -30,6 +32,5 @@ Session(app)
 bcrypt = Bcrypt(app)
 mash = Marshmallow(app)
 api = Api(app)
-db.init_app(app)
 admin = Admin(app, name="GoldWorth", index_view=AdminIndexView(url='/'), template_mode='bootstrap4')
 
